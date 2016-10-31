@@ -6,6 +6,8 @@ import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.hive.HiveContext;
 
+import static com.tangbo.util.TypeConverterUtil.getIntValue;
+
 /**
  * Created by Li.Xiaochuan on 16/10/25.
  */
@@ -14,13 +16,18 @@ public class GMVGenre {
 
     public static void main(String[] args) {
 
-        if (args.length < 1) {
+        if (args.length < 2) {
             System.err.println("Usage: gmv genre <hdfsPath>");
             System.exit(1);
         }
         String path = args[0];
+        String hdfsPrefix = args[1];
 
-        SparkConf conf = new SparkConf().setAppName("gmv_genre")/*.setMaster("local[4]")*/.set("spark.scheduler.pool", "production");
+        SparkConf conf = new SparkConf().setAppName("gmv_genre")
+                /*.setMaster("local[4]")*/
+                .set("spark.scheduler.pool", "production")
+                .set("spark.hadoop.validateOutputSpecs", "false")
+                ;
         JavaSparkContext sc = new JavaSparkContext(conf);
 
         HiveContext sqlContext = new HiveContext(sc);
@@ -264,7 +271,7 @@ public class GMVGenre {
                         "        group by tmp.day, tmp.genre",
                 sql18 = "select  tmp.day as day, tmp.genre as genre,20 as channel_type,\n" +
                         "         1 as filter_type,\n" +
-                        "         0 as platform,\n" +
+                        "         1 as platform,\n" +
                         "        count(order_num) as num\n" +
                         "        from\n" +
                         "        (SELECT  unix_timestamp(from_unixtime(business_order.create_time,'yyyyMMdd'),'yyyyMMdd') as day,\n" +
@@ -453,7 +460,7 @@ public class GMVGenre {
                 .union(hiveRDD26)
                 .union(hiveRDD27).map(GMVGenre::getRowContent1)
 
-                .saveAsTextFile("hdfs://master:9000" + path);
+                .saveAsTextFile(hdfsPrefix + path);
 
     }
 
@@ -472,19 +479,6 @@ public class GMVGenre {
         int num = getIntValue(row.get(5));
 
         return day + SPE + genre + SPE + channelType + SPE + filterType + SPE + platform + SPE + num;
-    }
-
-    @SuppressWarnings("Duplicates")
-    public static int getIntValue(Object obj) {
-        if(obj instanceof Byte) {
-            return ((Byte) obj).intValue();
-        } else if(obj instanceof Integer) {
-            return ((Integer) obj).intValue();
-        } else if(obj instanceof Long) {
-            return ((Long) obj).intValue();
-        }
-
-        return -1;
     }
 
     /*
