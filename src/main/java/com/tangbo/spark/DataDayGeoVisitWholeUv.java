@@ -1,6 +1,7 @@
 package com.tangbo.spark;
 
 import com.tangbo.util.DateTimeUtil;
+import com.tangbo.util.StringUtil;
 import com.tangbo.util.TypeConverterUtil;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
@@ -40,10 +41,16 @@ public class DataDayGeoVisitWholeUv {
 		try {
 			JavaRDD<Row> hiveRDD = sqlContext.sql("select phone_id,visit_time,visit_page,province,city from data_center.data_visit_year where part_key >='2016-01-01'").javaRDD();
 
-			JavaPairRDD<String, Integer> pairRDD = hiveRDD.mapToPair(row -> {
-						Integer phoneId = TypeConverterUtil.getIntValue(row.get(0));
+			JavaPairRDD<String, Integer> pairRDD = hiveRDD
+					.filter(row -> {
 						Long dayZero = DateTimeUtil.getUvDayZero(TypeConverterUtil.getLongValue(row.get(1)));
 						String visitPage = row.getString(2);
+						return dayZero > 0 && !("0".equals(visitPage) || visitPage == null || "null".equals(visitPage));
+					})
+					.mapToPair(row -> {
+						Integer phoneId = TypeConverterUtil.getIntValue(row.get(0));
+						Long dayZero = DateTimeUtil.getUvDayZero(TypeConverterUtil.getLongValue(row.get(1)));
+						String visitPage = StringUtil.trimToEmpty(row.getString(2)).toLowerCase();
 						Integer provice = TypeConverterUtil.getIntValue(row.get(3));
 						Integer city = TypeConverterUtil.getIntValue(row.get(4));
 

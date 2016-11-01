@@ -1,5 +1,7 @@
 package com.tangbo.spark;
 
+import com.tangbo.util.DateTimeUtil;
+import com.tangbo.util.StringUtil;
 import com.tangbo.util.TypeConverterUtil;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaRDD;
@@ -29,14 +31,19 @@ public class DataDayVisitWholeUv {
 
         HiveContext sqlContext = new HiveContext(sc);
         String sql = "select unix_timestamp(part_key,'yyyy-MM-dd') as day, \"whole\" as type, visit_page, \"\" as page_id, count(distinct phone_id) as user_view from data_center.data_visit_year where part_key >='2016-01-01' group by part_key,visit_page ";
-        DataFrame frame = sqlContext.sql(sql);
-        frame.show();
+
         JavaRDD<Row> hiveRDD = sqlContext.sql(sql).javaRDD();
 
-        hiveRDD.map(row -> {
+        hiveRDD
+                .filter(row -> {
+                    int day = TypeConverterUtil.getIntValue(row.get(0));
+                    String visitPage = StringUtil.trimToEmpty(row.getString(2)).toLowerCase();
+                    return day > 0 && !("0".equals(visitPage) || visitPage == null || "null".equals(visitPage));
+                })
+                .map(row -> {
             int day = TypeConverterUtil.getIntValue(row.get(0));
             String type = row.getString(1);
-            String visitPage = row.getString(2);
+            String visitPage = StringUtil.trimToEmpty(row.getString(2)).toLowerCase();
             String pageId = row.getString(3);
             int userView = TypeConverterUtil.getIntValue(row.get(4));
 
